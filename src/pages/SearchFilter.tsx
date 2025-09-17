@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePickerWithRange } from "@/components/ui/calendar";
+import { DatePickerWithRange } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Search, 
@@ -274,7 +274,10 @@ const SearchFilter = () => {
                 {/* Date Range */}
                 <div>
                   <h4 className="font-medium text-card-foreground mb-3">Date Range</h4>
-                  <Input placeholder="Select date range" />
+                  <DatePickerWithRange
+                    date={dateRange}
+                    setDate={setDateRange}
+                  />
                 </div>
 
                 <Button className="w-full" variant="outline">

@@ -13,8 +13,11 @@ import {
   CheckCircle,
   Upload,
   MessageSquare,
-  Activity
+  Activity,
+  UserCircle,
+  HelpCircle
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const Dashboard = () => {
   const { sector } = useParams();
@@ -104,13 +107,34 @@ const Dashboard = () => {
       
       <main className="dashboard-content flex-1">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {currentData.title}
-          </h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here's what's happening in your sector today.
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              {currentData.title}
+            </h1>
+            <p className="text-muted-foreground">
+              Welcome back! Here's what's happening in your sector today.
+            </p>
+          </div>
+          <div className="mt-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button aria-label="Profile menu" className="rounded-full p-1 hover:bg-muted">
+                  <UserCircle className="w-8 h-8" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate(`/dashboard/${sector}/profile`)}>
+                  <UserCircle className="w-4 h-4 mr-2" /> Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate(`/dashboard/${sector}/settings`)}>
+                  <HelpCircle className="w-4 h-4 mr-2" /> Help
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Stats Grid */}

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
+import Signup from "./pages/Signup";
 import SectorSelection from "./pages/SectorSelection";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/choose-sector" element={<SectorSelection />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/login/:sector" element={<Login />} />
           <Route path="/dashboard/:sector" element={<Dashboard />} />

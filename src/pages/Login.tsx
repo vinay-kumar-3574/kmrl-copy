@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, FileText, Lock, User, Zap, Users } from "lucide-react";
+import { ArrowLeft, FileText, Lock, IdCard, Zap, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const { sector } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [credentials, setCredentials] = useState({ employeeId: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
 
   const sectorConfig = {
@@ -45,20 +45,36 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate authentication
     setTimeout(() => {
-      toast({
-        title: "Login Successful",
-        description: `Welcome to ${currentSector?.title || 'KMRL CMS'}`,
-      });
-      
-      if (currentSector) {
-        navigate(currentSector.dashboardPath);
-      } else {
-        navigate("/dashboard");
+      try {
+        const raw = localStorage.getItem("kmrlUsers");
+        const users: Record<string, { username: string; password: string } > = raw ? JSON.parse(raw) : {};
+        const isValidId = /^\d{10}$/.test(credentials.employeeId);
+        const record = users[credentials.employeeId];
+
+        if (!isValidId) {
+          throw new Error("Employee ID must be 10 digits");
+        }
+        if (!record || record.password !== credentials.password) {
+          throw new Error("Invalid Employee ID or password");
+        }
+
+        toast({
+          title: "Login Successful",
+          description: `Welcome to ${currentSector?.title || 'KMRL CMS'}`,
+        });
+
+        if (currentSector) {
+          navigate(currentSector.dashboardPath);
+        } else {
+          navigate("/choose-sector");
+        }
+      } catch (err: any) {
+        toast({ title: "Login failed", description: err.message || "Please try again" });
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }, 1500);
+    }, 600);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -99,17 +115,19 @@ const Login = () => {
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-card-foreground font-medium">
-                  Email Address
+                <Label htmlFor="employeeId" className="text-card-foreground font-medium">
+                  Employee ID (10 digits)
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <IdCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={credentials.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    id="employeeId"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    title="Employee ID must be exactly 10 digits (0-9)"
+                    placeholder="Enter your 10-digit Employee ID"
+                    value={credentials.employeeId}
+                    onChange={(e) => handleInputChange("employeeId", e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                     className="pl-10 kmrl-input"
                     required
                   />
@@ -137,7 +155,7 @@ const Login = () => {
               <Alert className="border-primary/20 bg-primary/5">
                 <FileText className="w-4 h-4" />
                 <AlertDescription className="text-sm">
-                  Demo credentials: Use any email and password to access the dashboard.
+                  Use the 10-digit Employee ID generated at signup, with your password.
                 </AlertDescription>
               </Alert>
 
@@ -151,9 +169,7 @@ const Login = () => {
             </form>
 
             <div className="text-center pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">
-                Need help? Contact your system administrator
-              </p>
+              <p className="text-sm text-muted-foreground">New here? <button className="underline" onClick={() => navigate("/signup")}>Create an account</button></p>
             </div>
           </CardContent>
         </Card>

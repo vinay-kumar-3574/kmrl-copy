@@ -7,32 +7,7 @@ import heroImage from "@/assets/hero-kmrl.jpg";
 const Landing = () => {
   const navigate = useNavigate();
 
-  const sectors = [
-    {
-      id: "engineering",
-      title: "Engineering Sector",
-      description: "Manage technical documents, safety protocols, and infrastructure data with AI-powered analysis.",
-      icon: Zap,
-      color: "from-primary to-primary-light",
-      path: "/login/engineering"
-    },
-    {
-      id: "finance",
-      title: "Finance Sector", 
-      description: "Streamline financial documents, budgets, and compliance reports with intelligent processing.",
-      icon: FileText,
-      color: "from-success to-success-light",
-      path: "/login/finance"
-    },
-    {
-      id: "procurement",
-      title: "Procurement Sector",
-      description: "Optimize vendor management, contracts, and procurement workflows with automated insights.",
-      icon: Users,
-      color: "from-accent to-accent-light", 
-      path: "/login/procurement"
-    }
-  ];
+  // Removed sector cards per request
 
   const features = [
     {
@@ -72,9 +47,12 @@ const Landing = () => {
                 <p className="text-sm text-muted-foreground">Smart Document Management</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => navigate("/choose-sector")}>
-              Sign In
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" onClick={() => navigate("/signup")}>Sign Up</Button>
+              <Button variant="outline" onClick={() => navigate("/choose-sector")}>
+                Sign In
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -105,7 +83,7 @@ const Landing = () => {
               <Button 
                 size="lg" 
                 className="bg-accent hover:bg-accent-light text-accent-foreground font-semibold px-8 py-4"
-                onClick={() => document.getElementById('sectors')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => navigate("/choose-sector")}
               >
                 Get Started
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -155,45 +133,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Sector Selection */}
-      <section id="sectors" className="py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
-              Choose Your Sector
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Access your specialized dashboard with tailored features for your department's unique workflows.
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {sectors.map((sector) => (
-              <Card 
-                key={sector.id}
-                className="sector-card group"
-                onClick={() => navigate("/choose-sector")}
-              >
-                <CardContent className="p-8 text-center">
-                  <div className={`w-20 h-20 bg-gradient-to-br ${sector.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 kmrl-transition`}>
-                    <sector.icon className="w-10 h-10 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-card-foreground mb-4">
-                    {sector.title}
-                  </h3>
-                  <p className="text-muted-foreground mb-6 leading-relaxed">
-                    {sector.description}
-                  </p>
-                  <Button className="w-full group-hover:bg-primary group-hover:text-primary-foreground">
-                    Access Dashboard
-                    <ArrowRight className="ml-2 w-4 h-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Sector Selection removed */}
 
       {/* Footer */}
       <footer className="border-t border-border bg-card py-12">

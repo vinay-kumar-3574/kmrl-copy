@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
 
 const Dashboard = () => {
   const { sector } = useParams();
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const sectorData = {
@@ -177,19 +178,35 @@ const Dashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate(`/dashboard/${sector}/documents`)}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Document
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate(`/dashboard/${sector}/employees`)}
+              >
                 <Users className="w-4 h-4 mr-2" />
                 View Team Status
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate(`/dashboard/${sector}/projects`)}
+              >
                 <FileText className="w-4 h-4 mr-2" />
-                Generate Report
+                View Projects
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate(`/dashboard/${sector}/collaboration`)}
+              >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Start Collaboration
               </Button>

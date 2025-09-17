@@ -76,10 +76,10 @@ const Sidebar = ({ isCollapsed = false, onToggle }: SidebarProps) => {
       badge: null,
     },
     {
-      id: "upload",
-      title: "Upload & Export",
-      icon: Upload,
-      path: `/dashboard/${sector}/upload`,
+      id: "projects", 
+      title: "Assigned Projects",
+      icon: FileText,
+      path: `/dashboard/${sector}/projects`,
       badge: null,
     },
     {

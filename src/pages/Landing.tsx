@@ -72,7 +72,7 @@ const Landing = () => {
                 <p className="text-sm text-muted-foreground">Smart Document Management</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => navigate("/login")}>
+            <Button variant="outline" onClick={() => navigate("/choose-sector")}>
               Sign In
             </Button>
           </div>
@@ -172,7 +172,7 @@ const Landing = () => {
               <Card 
                 key={sector.id}
                 className="sector-card group"
-                onClick={() => navigate(sector.path)}
+                onClick={() => navigate("/choose-sector")}
               >
                 <CardContent className="p-8 text-center">
                   <div className={`w-20 h-20 bg-gradient-to-br ${sector.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 kmrl-transition`}>

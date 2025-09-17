@@ -17,6 +17,9 @@ import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import EngineeringDashboard from "./pages/dashboards/EngineeringDashboard";
+import FinanceDashboard from "./pages/dashboards/FinanceDashboard";
+import ProcurementDashboard from "./pages/dashboards/ProcurementDashboard";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,11 @@ const App = () => (
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/login/:sector" element={<Login />} />
+          {/* Explicit sector dashboards */}
+          <Route path="/dashboard/engineering" element={<EngineeringDashboard />} />
+          <Route path="/dashboard/finance" element={<FinanceDashboard />} />
+          <Route path="/dashboard/procurement" element={<ProcurementDashboard />} />
+          {/* Fallback generic sector route (optional) */}
           <Route path="/dashboard/:sector" element={<Dashboard />} />
           <Route path="/dashboard/:sector/employees" element={<Employees />} />
           <Route path="/dashboard/:sector/documents" element={<DocumentManagement />} />

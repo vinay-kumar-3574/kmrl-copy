@@ -32,6 +32,7 @@ const Sidebar = ({ isCollapsed = false, onToggle }: SidebarProps) => {
   const location = useLocation();
   const { sector } = useParams();
   const [notifications] = useState(5);
+  const routeSector = (sector || (location.pathname.match(/^\/dashboard\/(engineering|finance|procurement)/)?.[1])) as string | undefined;
 
   const sectorConfig = {
     engineering: {
@@ -51,56 +52,56 @@ const Sidebar = ({ isCollapsed = false, onToggle }: SidebarProps) => {
     }
   };
 
-  const currentSector = sector ? sectorConfig[sector as keyof typeof sectorConfig] : null;
+  const currentSector = routeSector ? sectorConfig[routeSector as keyof typeof sectorConfig] : null;
 
   const menuItems = [
     {
       id: "dashboard",
       title: "Dashboard Overview",
       icon: Home,
-      path: `/dashboard/${sector}`,
+      path: `/dashboard/${routeSector}`,
       badge: null,
     },
     {
       id: "employees",
       title: "Employees List",
       icon: Users,
-      path: `/dashboard/${sector}/employees`,
+      path: `/dashboard/${routeSector}/employees`,
       badge: null,
     },
     {
       id: "documents",
       title: "Document Management",
       icon: FileText,
-      path: `/dashboard/${sector}/documents`,
+      path: `/dashboard/${routeSector}/documents`,
       badge: null,
     },
     {
       id: "projects", 
       title: "Assigned Projects",
       icon: FileText,
-      path: `/dashboard/${sector}/projects`,
+      path: `/dashboard/${routeSector}/projects`,
       badge: null,
     },
     {
       id: "search",
       title: "Search & Filter",
       icon: Search,
-      path: `/dashboard/${sector}/search`,
+      path: `/dashboard/${routeSector}/search`,
       badge: null,
     },
     {
       id: "collaboration",
       title: "Collaboration",
       icon: MessageSquare,
-      path: `/dashboard/${sector}/collaboration`,
+      path: `/dashboard/${routeSector}/collaboration`,
       badge: 3,
     },
     {
       id: "alerts",
       title: "Alerts & Notifications",
       icon: Bell,
-      path: `/dashboard/${sector}/alerts`, 
+      path: `/dashboard/${routeSector}/alerts`, 
       badge: notifications,
     },
   ];
@@ -188,7 +189,7 @@ const Sidebar = ({ isCollapsed = false, onToggle }: SidebarProps) => {
             "w-full justify-start h-12",
             isCollapsed ? "px-3" : "px-4"
           )}
-          onClick={() => navigate(`/dashboard/${sector}/settings`)}
+          onClick={() => navigate(`/dashboard/${routeSector}/settings`)}
         >
           <Settings className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
           {!isCollapsed && <span>Settings</span>}

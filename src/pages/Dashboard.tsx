@@ -33,12 +33,7 @@ const Dashboard = () => {
         { title: "Critical Alerts", value: "3", change: "-1", icon: AlertTriangle, color: "text-destructive" },
         { title: "Pending Reviews", value: "8", change: "0", icon: Clock, color: "text-warning" },
       ],
-      recentActivities: [
-        { title: "Safety Protocol Updated", time: "2 hours ago", type: "document" },
-        { title: "Bridge Inspection Report", time: "4 hours ago", type: "upload" },
-        { title: "Team Meeting Scheduled", time: "6 hours ago", type: "meeting" },
-        { title: "Compliance Check Completed", time: "1 day ago", type: "completed" },
-      ]
+      
     },
     finance: {
       title: "Finance Dashboard",

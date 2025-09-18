@@ -47,6 +47,10 @@ const SectorSelection = () => {
   ];
 
   const handleSectorSelect = (path: string) => {
+    try {
+      const seg = path.split("/").pop() || "";
+      if (seg) localStorage.setItem("sector", seg);
+    } catch {}
     navigate(path);
   };
 

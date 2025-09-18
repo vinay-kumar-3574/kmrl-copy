@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,11 +26,15 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const { sector } = useParams();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<any>({});
   
   // Settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -41,9 +45,30 @@ const Settings = () => {
   const [theme, setTheme] = useState("system");
   const [timezone, setTimezone] = useState("asia-kolkata");
 
-  const handleSaveProfile = () => {
-    // Handle profile save logic
-    console.log("Profile saved");
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch("/api/users/me");
+        setProfile(res?.user || {});
+      } catch {}
+    })();
+  }, []);
+
+  const handleSaveProfile = async () => {
+    try {
+      const payload: any = {
+        name: `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || undefined,
+        email: profile.email || undefined,
+        phone: profile.phone || undefined,
+        department: profile.department || undefined,
+        bio: profile.bio || undefined,
+      };
+      const saved = await apiFetch("/api/users/me", { method: "PUT", body: JSON.stringify(payload) });
+      setProfile(saved?.user || profile);
+      toast({ title: "Profile saved" });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message || "" });
+    }
   };
 
   const handleSaveNotifications = () => {
@@ -95,33 +120,33 @@ const Settings = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" defaultValue="John" />
+                    <Input id="firstName" value={profile.firstName || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), firstName: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" defaultValue="Doe" />
+                    <Input id="lastName" value={profile.lastName || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), lastName: e.target.value }))} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" defaultValue="john.doe@kmrl.gov.in" />
+                  <Input id="email" type="email" value={profile.email || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), email: e.target.value }))} />
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" defaultValue="+91 98765 43210" />
+                    <Input id="phone" value={profile.phone || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), phone: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="employee-id">Employee ID</Label>
-                    <Input id="employee-id" defaultValue="KMRL-2024-001" disabled />
+                    <Input id="employee-id" value={profile.employeeId || ""} disabled />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
-                  <Input id="department" defaultValue="Engineering" disabled />
+                  <Input id="department" value={profile.department || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), department: e.target.value }))} />
                 </div>
 
                 <div className="space-y-2">
@@ -142,7 +167,7 @@ const Settings = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
-                  <Input id="bio" placeholder="Tell us about yourself..." />
+                  <Input id="bio" value={profile.bio || ""} onChange={(e) => setProfile((p: any) => ({ ...(p||{}), bio: e.target.value }))} placeholder="Tell us about yourself..." />
                 </div>
 
                 <Separator />

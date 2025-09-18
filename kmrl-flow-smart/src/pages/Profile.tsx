@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,31 +27,61 @@ import {
   CheckCircle,
   AlertCircle
 } from "lucide-react";
+import { useAuthContext } from "@/providers/AuthProvider";
+import { apiFetch } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Profile = () => {
   const { sector } = useParams();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user } = useAuthContext();
+  const [profile, setProfile] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
 
-  const userProfile = {
-    name: "John Doe",
-    role: "Senior Engineer",
-    department: "Infrastructure Development",
-    sector: sector?.charAt(0).toUpperCase() + sector?.slice(1) || "Engineering",
-    email: "john.doe@kmrl.gov.in",
-    phone: "+91 98765 43210",
-    location: "Head Office, Kochi",
-    joinDate: "March 2023",
-    employeeId: "KMRL-2024-001",
-    avatar: "/placeholder.svg",
-    bio: "Experienced infrastructure engineer with over 8 years in metro rail systems. Specializing in safety protocols and technical operations management.",
-    skills: ["Project Management", "Safety Protocols", "Technical Analysis", "Team Leadership", "Documentation"],
-    achievements: [
-      { title: "Safety Excellence Award", date: "2024", icon: Award },
-      { title: "Best Team Leader", date: "2023", icon: Users },
-      { title: "Innovation Award", date: "2023", icon: Trophy },
-      { title: "Document Management Champion", date: "2024", icon: FileText }
-    ]
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await apiFetch("/api/users/me");
+        setProfile(res?.user || {});
+      } catch {}
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [a, p, ac] = await Promise.all([
+          apiFetch("/api/users/me/activity"),
+          apiFetch("/api/users/me/projects"),
+          apiFetch("/api/users/me/achievements"),
+        ]);
+        setActivity(Array.isArray(a?.activity) ? a.activity : []);
+        setProjects(Array.isArray(p?.projects) ? p.projects : []);
+        setAchievements(Array.isArray(ac?.achievements) ? ac.achievements : []);
+      } catch {}
+    })();
+  }, []);
+
+  const userProfile = useMemo(() => ({
+    name: profile?.name || user?.displayName || user?.email || "User",
+    role: profile?.title || "Employee",
+    department: profile?.department || "General",
+    sector: profile?.sector || (sector ? sector.charAt(0).toUpperCase() + sector.slice(1) : "General"),
+    email: user?.email || "",
+    phone: profile?.phone || "",
+    location: profile?.location || "",
+    joinDate: profile?.joinedAt ? new Date(profile.joinedAt).toLocaleString('default', { month: 'long', year: 'numeric' }) : "",
+    employeeId: profile?.employeeId || (user?.uid ? `KMRL-${user.uid.slice(0,6)}` : ""),
+    avatar: profile?.avatar || "/placeholder.svg",
+    bio: profile?.bio || "",
+    skills: Array.isArray(profile?.skills) ? profile.skills : [],
+    achievements: [],
+  }), [profile, user, sector]);
 
   const stats = {
     documentsProcessed: 156,
@@ -60,60 +90,21 @@ const Profile = () => {
     mentionsReceived: 45
   };
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: "document",
-      title: "Updated Safety Protocol Manual v2.3",
-      time: "2 hours ago",
-      status: "completed"
-    },
-    {
-      id: 2,
-      type: "collaboration",
-      title: "Participated in Q1 Budget Review Discussion",
-      time: "4 hours ago",
-      status: "active"
-    },
-    {
-      id: 3,
-      type: "project",
-      title: "Completed Metro Line 2 Safety Assessment",
-      time: "1 day ago",
-      status: "completed"
-    },
-    {
-      id: 4,
-      type: "meeting",
-      title: "Team Meeting: Infrastructure Planning",
-      time: "2 days ago",
-      status: "completed"
-    }
-  ];
+  const recentActivities = activity.map((it) => ({
+    id: it.id,
+    type: it.type || "document",
+    title: it.title || it.summary || "",
+    time: it.createdAt ? new Date(it.createdAt).toLocaleString() : "",
+    status: it.status || "completed",
+  }));
 
-  const currentProjects = [
-    {
-      id: 1,
-      name: "Metro Line 3 Construction",
-      progress: 75,
-      status: "On Track",
-      deadline: "Dec 2024"
-    },
-    {
-      id: 2,
-      name: "Safety System Upgrade",
-      progress: 45,
-      status: "In Progress",
-      deadline: "Nov 2024"
-    },
-    {
-      id: 3,
-      name: "Station Accessibility Enhancement",
-      progress: 90,
-      status: "Near Completion",
-      deadline: "Oct 2024"
-    }
-  ];
+  const currentProjects = projects.map((p) => ({
+    id: p.id,
+    name: p.name || p.title || "",
+    progress: typeof p.progress === "number" ? p.progress : 0,
+    status: p.status || "On Track",
+    deadline: p.deadline || (p.endDate ? new Date(p.endDate).toLocaleDateString() : ""),
+  }));
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -174,20 +165,16 @@ const Profile = () => {
                 <div className="flex-1 lg:text-right space-y-4">
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     <Badge className="bg-primary/10 text-primary">{userProfile.sector} Sector</Badge>
-                    <Badge variant="outline">ID: {userProfile.employeeId}</Badge>
-                    <Badge variant="outline">Since {userProfile.joinDate}</Badge>
+                    <Badge variant="outline">Employee ID: {userProfile.employeeId}</Badge>
+                    <Badge variant="outline">Since {userProfile.joinDate || '—'}</Badge>
                   </div>
                   
-                  <div className="flex space-x-2 lg:justify-end">
-                    <Button variant="outline" size="sm">
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Button>
-                  </div>
+                <div className="flex space-x-2 lg:justify-end">
+                  <Button variant="outline" size="sm" onClick={() => { window.location.href = "/settings"; }}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Button>
+                </div>
                 </div>
               </div>
             </CardContent>
@@ -365,16 +352,16 @@ const Profile = () => {
           {/* Achievements Tab */}
           <TabsContent value="achievements" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              {userProfile.achievements.map((achievement, index) => (
+              {achievements.map((achievement, index) => (
                 <Card key={index} className="kmrl-card">
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-4">
                       <div className="p-3 bg-primary/10 rounded-full">
-                        <achievement.icon className="w-6 h-6 text-primary" />
+                        <Award className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-card-foreground">{achievement.title}</h3>
-                        <p className="text-sm text-muted-foreground">Awarded in {achievement.date}</p>
+                        <h3 className="font-semibold text-card-foreground">{achievement.title || achievement.name}</h3>
+                        <p className="text-sm text-muted-foreground">{achievement.date ? new Date(achievement.date).toLocaleDateString() : ""}</p>
                       </div>
                     </div>
                   </CardContent>

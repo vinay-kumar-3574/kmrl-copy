@@ -63,14 +63,37 @@ const DocumentManagement = () => {
   const [tagsText, setTagsText] = useState<string>("");
   const [description, setDescription] = useState<string>("");
 
-  const allEmployees: { id: string; name: string; role: string; department: "engineering" | "finance" | "procurement" }[] = [
-    { id: "E001", name: "Arjun Nair", role: "Engineer", department: "engineering" },
-    { id: "E002", name: "Meera Pillai", role: "Safety Officer", department: "engineering" },
-    { id: "F001", name: "Priya Menon", role: "Accountant", department: "finance" },
-    { id: "F002", name: "Ravi Kumar", role: "Analyst", department: "finance" },
-    { id: "P001", name: "Rajesh Kumar", role: "Procurement Lead", department: "procurement" },
-    { id: "P002", name: "Anita Varma", role: "Vendor Manager", department: "procurement" },
-  ];
+  const [deptEmployees, setDeptEmployees] = useState<Record<string, { id: string; name: string; role?: string; department: "engineering" | "finance" | "procurement" }[]>>({});
+
+  const fetchEmployeesByDept = useCallback(async (dept: "engineering" | "finance" | "procurement") => {
+    try {
+      const cap = dept.charAt(0).toUpperCase() + dept.slice(1);
+      // Try capitalized
+      let res = await apiFetch(`/api/employees?department=${encodeURIComponent(cap)}`);
+      let list: any[] = Array.isArray(res?.employees) ? res.employees : [];
+      // Fallback: try lowercase
+      if (list.length === 0) {
+        res = await apiFetch(`/api/employees?department=${encodeURIComponent(dept)}`);
+        list = Array.isArray(res?.employees) ? res.employees : [];
+      }
+      // Fallback: fetch all and filter client-side case-insensitive
+      if (list.length === 0) {
+        res = await apiFetch(`/api/employees`);
+        const all = Array.isArray(res?.employees) ? res.employees : [];
+        list = all.filter((e: any) => String(e.department || "").toLowerCase() === dept);
+      }
+      const normalized = list.map((e: any) => ({
+        id: e.id,
+        name: e.name || e.email || e.employeeId || "",
+        role: e.title || "",
+        department: dept,
+      }));
+      setDeptEmployees(prev => ({ ...prev, [dept]: normalized }));
+    } catch (e) {
+      console.error("Failed to load employees for dept", dept, e);
+      setDeptEmployees(prev => ({ ...prev, [dept]: [] }));
+    }
+  }, []);
 
   const openShareFor = (dept: "engineering" | "finance" | "procurement") => {
     setShareDept(dept);
@@ -79,9 +102,12 @@ const DocumentManagement = () => {
     setSelectedEmployees({});
     setSelectAll(false);
     setShareOpen(true);
+    if (!deptEmployees[dept]) {
+      fetchEmployeesByDept(dept);
+    }
   };
 
-  const filteredEmployees = allEmployees.filter(e => {
+  const filteredEmployees = (deptEmployees[shareDept || ""] || []).filter(e => {
     if (!shareDept) return false;
     const inDept = e.department === shareDept;
     const query = employeeSearch.trim().toLowerCase();

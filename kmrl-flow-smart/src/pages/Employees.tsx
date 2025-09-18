@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
+import { useAuthContext } from "@/providers/AuthProvider";
 import { 
   Search, 
   Filter, 
@@ -28,93 +33,73 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const { toast } = useToast();
+  const { user } = useAuthContext();
 
-  const employees = [
-    {
-      id: 1,
-      name: "Arjun Nair",
-      role: "Senior Engineer",
-      department: "Infrastructure",
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newEmpName, setNewEmpName] = useState("");
+  const [newEmpId, setNewEmpId] = useState("");
+  const [newEmpDept, setNewEmpDept] = useState("");
+  const [newEmpTitle, setNewEmpTitle] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const data = await apiFetch("/api/employees");
+        setEmployees(Array.isArray(data?.employees) ? data.employees : []);
+      } catch (e: any) {
+        toast({ title: "Failed to load employees", description: e.message || "" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [toast]);
+
+  const displayEmployees = useMemo(() => {
+    return employees.map((e) => ({
+      id: e.id,
+      name: e.name,
+      role: e.title || "Employee",
+      department: e.department || "General",
       status: "active",
       availability: "Available",
-      email: "arjun.nair@kmrl.gov.in",
-      phone: "+91 98765 43210",
-      location: "Aluva Station",
-      recentActivity: "Updated safety protocols - 2 hours ago",
-      documentsHandled: 8,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      name: "Priya Menon",
-      role: "Financial Analyst",
-      department: "Budget Planning",
-      status: "active",
-      availability: "In Meeting",
-      email: "priya.menon@kmrl.gov.in",
-      phone: "+91 98765 43211",
-      location: "Head Office",
-      recentActivity: "Reviewed quarterly budget - 1 hour ago",
-      documentsHandled: 12,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 3,
-      name: "Rajesh Kumar",
-      role: "Procurement Manager",
-      department: "Vendor Relations",
-      status: "active",
-      availability: "Available",
-      email: "rajesh.kumar@kmrl.gov.in",
-      phone: "+91 98765 43212",
-      location: "Ernakulam South",
-      recentActivity: "Processed vendor contracts - 30 minutes ago",
-      documentsHandled: 15,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 4,
-      name: "Meera Pillai",
-      role: "Systems Engineer",
-      department: "Technical Operations",
-      status: "offline",
-      availability: "Off Duty",
-      email: "meera.pillai@kmrl.gov.in",
-      phone: "+91 98765 43213",
-      location: "Kakkanad",
-      recentActivity: "System maintenance completed - 1 day ago",
-      documentsHandled: 6,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 5,
-      name: "Suresh Babu",
-      role: "Finance Officer",
-      department: "Accounts",
-      status: "active",
-      availability: "Field Work",
-      email: "suresh.babu@kmrl.gov.in",
-      phone: "+91 98765 43214",
-      location: "MG Road Station",
-      recentActivity: "Audit documentation review - 3 hours ago",
-      documentsHandled: 10,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 6,
-      name: "Anitha Raj",
-      role: "Procurement Specialist",
-      department: "Contract Management",
-      status: "active",
-      availability: "Available",
-      email: "anitha.raj@kmrl.gov.in",
-      phone: "+91 98765 43215",
-      location: "Head Office",
-      recentActivity: "Contract negotiations - 45 minutes ago",
-      documentsHandled: 9,
-      avatar: "/placeholder.svg"
+      email: e.email || "",
+      phone: e.phone || "",
+      location: e.location || "",
+      recentActivity: e.recentActivity || "",
+      documentsHandled: e.documentsHandled || 0,
+      avatar: "/placeholder.svg",
+    }));
+  }, [employees]);
+
+  const handleAddEmployee = async () => {
+    if (!newEmpName || !newEmpId || !newEmpDept) {
+      toast({ title: "Missing fields", description: "Name, Employee ID and Department are required." });
+      return;
     }
-  ];
+    try {
+      await apiFetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newEmpName, employeeId: newEmpId, department: newEmpDept, title: newEmpTitle || undefined, uid: user?.uid, email: user?.email || undefined }),
+      });
+      setAddOpen(false);
+      setNewEmpName("");
+      setNewEmpId("");
+      setNewEmpDept("");
+      setNewEmpTitle("");
+      // refresh list
+      const data = await apiFetch("/api/employees");
+      setEmployees(Array.isArray(data?.employees) ? data.employees : []);
+      toast({ title: "Employee added" });
+    } catch (e: any) {
+      toast({ title: "Add failed", description: e.message || "" });
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -142,7 +127,7 @@ const Employees = () => {
     }
   };
 
-  const filteredEmployees = employees.filter(employee => {
+  const filteredEmployees = displayEmployees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.department.toLowerCase().includes(searchTerm.toLowerCase());
@@ -153,6 +138,7 @@ const Employees = () => {
   });
 
   return (
+    <>
     <div className="flex min-h-screen bg-background">
       <Sidebar 
         isCollapsed={sidebarCollapsed}
@@ -168,6 +154,9 @@ const Employees = () => {
           <p className="text-muted-foreground">
             Manage and view team members across your sector with real-time status updates.
           </p>
+          <div className="mt-4">
+            <Button onClick={() => setAddOpen(true)}>Add Employee</Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -215,6 +204,10 @@ const Employees = () => {
 
         {/* Employee Grid */}
         <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {isLoading && <div className="text-sm text-muted-foreground">Loading employees...</div>}
+          {!isLoading && filteredEmployees.length === 0 && (
+            <div className="text-sm text-muted-foreground">No employees found.</div>
+          )}
           {filteredEmployees.map((employee) => (
             <Card key={employee.id} className="kmrl-card">
               <CardHeader className="pb-4">
@@ -336,6 +329,48 @@ const Employees = () => {
         </Card>
       </main>
     </div>
+
+    {/* Add Employee Dialog */}
+    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Employee</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="emp-name">Name</Label>
+            <Input id="emp-name" value={newEmpName} onChange={(e) => setNewEmpName(e.target.value)} placeholder="Full name" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="emp-id">Employee ID</Label>
+            <Input id="emp-id" value={newEmpId} onChange={(e) => setNewEmpId(e.target.value)} placeholder="e.g., E001" />
+          </div>
+          <div className="space-y-2">
+            <Label>Department</Label>
+            <Select value={newEmpDept} onValueChange={setNewEmpDept}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Engineering">Engineering</SelectItem>
+                <SelectItem value="Finance">Finance</SelectItem>
+                <SelectItem value="Procurement">Procurement</SelectItem>
+                <SelectItem value="Operations">Operations</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="emp-title">Title (optional)</Label>
+            <Input id="emp-title" value={newEmpTitle} onChange={(e) => setNewEmpTitle(e.target.value)} placeholder="e.g., Senior Engineer" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddEmployee}>Add</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

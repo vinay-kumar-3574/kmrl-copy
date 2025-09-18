@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, User, Lock, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { apiFetch } from "@/lib/api";
 
@@ -26,6 +27,9 @@ function generateEmployeeId(existing: Record<string, StoredUser>): string {
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { sector } = useParams();
+  const sectorFromStorage = (() => { try { return localStorage.getItem('sector') || undefined; } catch { return undefined; } })();
+  const resolvedSector = sector || sectorFromStorage;
   const { toast } = useToast();
   const [form, setForm] = useState({ username: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
@@ -42,12 +46,30 @@ const Signup = () => {
       const employeeId = generateEmployeeId({});
       const email = `${employeeId}@kmrl.local`;
 
-      await createUserWithEmailAndPassword(auth, email, form.password);
+      const cred = await createUserWithEmailAndPassword(auth, email, form.password);
+      if (cred.user && form.username) {
+        try { await updateProfile(cred.user, { displayName: form.username }); } catch {}
+      }
 
       try {
         await apiFetch("/api/users/me", {
           method: "PUT",
-          body: JSON.stringify({ name: form.username })
+          body: JSON.stringify({ name: form.username, sector: resolvedSector, employeeId, joinedAt: Date.now(), email })
+        });
+      } catch {}
+
+      try {
+        await apiFetch("/api/employees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.username,
+            employeeId,
+            department: resolvedSector ? String(resolvedSector).charAt(0).toUpperCase() + String(resolvedSector).slice(1) : "General",
+            title: "Employee",
+            uid: cred.user?.uid,
+            email,
+          }),
         });
       } catch {}
 

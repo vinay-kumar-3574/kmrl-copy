@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, FileText, Lock, IdCard, Zap, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { apiFetch } from "@/lib/api";
 import { auth } from "@/lib/firebase";
 
 const Login = () => {
@@ -52,7 +53,16 @@ const Login = () => {
       if (!isValidId) throw new Error("Employee ID must be 10 digits");
 
       const email = `${credentials.employeeId}@kmrl.local`;
-      await signInWithEmailAndPassword(auth, email, credentials.password);
+      const cred = await signInWithEmailAndPassword(auth, email, credentials.password);
+      // Persist sector to profile and employee on successful login
+      try {
+        const currentSectorKey = sector || (localStorage.getItem('sector') || undefined);
+        if (currentSectorKey) {
+          const sectorCap = String(currentSectorKey).charAt(0).toUpperCase() + String(currentSectorKey).slice(1);
+          await apiFetch('/api/users/me', { method: 'PUT', body: JSON.stringify({ sector: currentSectorKey, department: sectorCap }) });
+          await apiFetch('/api/employees/me', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ department: currentSectorKey }) });
+        }
+      } catch {}
 
       toast({ title: "Login Successful", description: `Welcome to ${currentSector?.title || 'KMRL CMS'}` });
       if (currentSector) navigate(currentSector.dashboardPath); else navigate("/choose-sector");

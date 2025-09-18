@@ -7,24 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, User, Lock, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { apiFetch } from "@/lib/api";
 
 type StoredUser = {
   username: string;
   password: string;
 };
-
-function loadUsers(): Record<string, StoredUser> {
-  try {
-    const raw = localStorage.getItem("kmrlUsers");
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function persistUsers(users: Record<string, StoredUser>) {
-  localStorage.setItem("kmrlUsers", JSON.stringify(users));
-}
 
 function generateEmployeeId(existing: Record<string, StoredUser>): string {
   let id = "";
@@ -44,21 +34,30 @@ const Signup = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const users = loadUsers();
-      const employeeId = generateEmployeeId(users);
-      users[employeeId] = { username: form.username.trim(), password: form.password };
-      persistUsers(users);
+    try {
+      const employeeId = generateEmployeeId({});
+      const email = `${employeeId}@kmrl.local`;
+
+      await createUserWithEmailAndPassword(auth, email, form.password);
+
+      try {
+        await apiFetch("/api/users/me", {
+          method: "PUT",
+          body: JSON.stringify({ name: form.username })
+        });
+      } catch {}
 
       alert(`Signup successful!\n\nYour Employee ID is ${employeeId}.\nUse this ID with your password to log in.`);
-
       navigate("/login");
+    } catch (err: any) {
+      toast({ title: "Signup failed", description: err?.message || "Please try again" });
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   return (

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./providers/AuthProvider";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
 import SectorSelection from "./pages/SectorSelection";
@@ -28,8 +29,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/choose-sector" element={<SectorSelection />} />
           <Route path="/signup" element={<Signup />} />
@@ -52,8 +54,9 @@ const App = () => (
           <Route path="/dashboard/:sector/*" element={<Dashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

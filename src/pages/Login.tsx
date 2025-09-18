@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, FileText, Lock, IdCard, Zap, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const Login = () => {
   const { sector } = useParams();
@@ -37,7 +39,7 @@ const Login = () => {
       color: "from-accent to-accent-light",
       dashboardPath: "/dashboard/procurement"
     }
-  };
+  } as const;
 
   const currentSector = sector ? sectorConfig[sector as keyof typeof sectorConfig] : null;
 
@@ -45,36 +47,20 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      try {
-        const raw = localStorage.getItem("kmrlUsers");
-        const users: Record<string, { username: string; password: string } > = raw ? JSON.parse(raw) : {};
-        const isValidId = /^\d{10}$/.test(credentials.employeeId);
-        const record = users[credentials.employeeId];
+    try {
+      const isValidId = /^\d{10}$/.test(credentials.employeeId);
+      if (!isValidId) throw new Error("Employee ID must be 10 digits");
 
-        if (!isValidId) {
-          throw new Error("Employee ID must be 10 digits");
-        }
-        if (!record || record.password !== credentials.password) {
-          throw new Error("Invalid Employee ID or password");
-        }
+      const email = `${credentials.employeeId}@kmrl.local`;
+      await signInWithEmailAndPassword(auth, email, credentials.password);
 
-        toast({
-          title: "Login Successful",
-          description: `Welcome to ${currentSector?.title || 'KMRL CMS'}`,
-        });
-
-        if (currentSector) {
-          navigate(currentSector.dashboardPath);
-        } else {
-          navigate("/choose-sector");
-        }
-      } catch (err: any) {
-        toast({ title: "Login failed", description: err.message || "Please try again" });
-      } finally {
-        setIsLoading(false);
-      }
-    }, 600);
+      toast({ title: "Login Successful", description: `Welcome to ${currentSector?.title || 'KMRL CMS'}` });
+      if (currentSector) navigate(currentSector.dashboardPath); else navigate("/choose-sector");
+    } catch (err: any) {
+      toast({ title: "Login failed", description: err.message || "Please try again" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {

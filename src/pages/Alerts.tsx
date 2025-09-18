@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,51 +10,30 @@ import {
   Clock, 
   CheckCircle, 
   Bell, 
-  Shield, 
   FileText, 
   Calendar,
   Filter,
   Eye,
   Archive
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 const Alerts = () => {
   const { sector } = useParams();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [alerts, setAlerts] = useState<any[]>([]);
 
-  const alerts = [
-    {
-      id: 1,
-      type: "critical",
-      title: "Safety Protocol Compliance Deadline",
-      message: "Safety protocol documentation must be updated by Jan 20, 2024",
-      department: "Engineering",
-      timestamp: "2 hours ago",
-      read: false,
-      actionRequired: true
-    },
-    {
-      id: 2,
-      type: "warning",
-      title: "Budget Review Pending",
-      message: "Q1 budget review requires your approval",
-      department: "Finance",
-      timestamp: "4 hours ago",
-      read: false,
-      actionRequired: true
-    },
-    {
-      id: 3,
-      type: "info",
-      title: "New Document Uploaded",
-      message: "Vendor contract has been uploaded for review",
-      department: "Procurement",
-      timestamp: "6 hours ago",
-      read: true,
-      actionRequired: false
-    }
-  ];
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiFetch("/api/alerts");
+        setAlerts(data.alerts || []);
+      } catch (e) {
+        setAlerts([]);
+      }
+    })();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -100,35 +79,23 @@ const Alerts = () => {
 
           <div className="space-y-4">
             {alerts.map((alert) => (
-              <Card key={alert.id} className={`kmrl-card ${!alert.read ? 'border-primary/50' : ''}`}>
+              <Card key={alert.id} className={`kmrl-card`}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
-                      <div className={`p-2 rounded-full ${
-                        alert.type === 'critical' ? 'bg-destructive/10 text-destructive' :
-                        alert.type === 'warning' ? 'bg-warning/10 text-warning' :
-                        'bg-primary/10 text-primary'
-                      }`}>
-                        {alert.type === 'critical' ? <AlertTriangle className="w-5 h-5" /> :
-                         alert.type === 'warning' ? <Clock className="w-5 h-5" /> :
-                         <Bell className="w-5 h-5" />}
+                      <div className={`p-2 rounded-full bg-primary/10 text-primary`}>
+                        <Bell className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <h3 className="font-semibold text-lg text-card-foreground">
                             {alert.title}
                           </h3>
-                          {!alert.read && (
-                            <Badge className="bg-primary text-primary-foreground">New</Badge>
-                          )}
-                          {alert.actionRequired && (
-                            <Badge className="bg-destructive/10 text-destructive">Action Required</Badge>
-                          )}
+                          <Badge className="bg-primary text-primary-foreground">New</Badge>
                         </div>
-                        <p className="text-muted-foreground mb-3">{alert.message}</p>
+                        <p className="text-muted-foreground mb-3">Recent upload</p>
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                          <span>{alert.department}</span>
-                          <span>{alert.timestamp}</span>
+                          <span>{new Date(alert.time).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -137,11 +104,6 @@ const Alerts = () => {
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Button>
-                      {alert.actionRequired && (
-                        <Button size="sm">
-                          Take Action
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>

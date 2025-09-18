@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,13 +36,14 @@ import {
   X
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { apiFetch, apiUpload } from "@/lib/api";
 
 const DocumentManagement = () => {
   const { sector } = useParams();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<string>("upload");
-  const [currentShareDoc, setCurrentShareDoc] = useState<{ id: number; name: string } | null>(null);
+  const [currentShareDoc, setCurrentShareDoc] = useState<{ id: string; name: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const { toast } = useToast();
@@ -52,6 +53,15 @@ const DocumentManagement = () => {
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [selectedEmployees, setSelectedEmployees] = useState<Record<string, boolean>>({});
   const [selectAll, setSelectAll] = useState(false);
+  const [docs, setDocs] = useState<any[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState<string>("");
+  const [urgency, setUrgency] = useState<string>("");
+  const [department, setDepartment] = useState<string>("");
+  const [language, setLanguage] = useState<string>("");
+  const [tagsText, setTagsText] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
 
   const allEmployees: { id: string; name: string; role: string; department: "engineering" | "finance" | "procurement" }[] = [
     { id: "E001", name: "Arjun Nair", role: "Engineer", department: "engineering" },
@@ -74,7 +84,8 @@ const DocumentManagement = () => {
   const filteredEmployees = allEmployees.filter(e => {
     if (!shareDept) return false;
     const inDept = e.department === shareDept;
-    const matchesSearch = employeeSearch.trim() === "" || e.name.toLowerCase().includes(employeeSearch.toLowerCase()) || e.id.toLowerCase().includes(employeeSearch.toLowerCase());
+    const query = employeeSearch.trim().toLowerCase();
+    const matchesSearch = query === "" || e.name.toLowerCase().includes(query) || e.id.toLowerCase().includes(query);
     const matchesFilter = employeeFilter === "all" || e.role.toLowerCase().includes(employeeFilter.toLowerCase());
     return inDept && matchesSearch && matchesFilter;
   });
@@ -96,72 +107,20 @@ const DocumentManagement = () => {
     setShareOpen(false);
   };
 
-  const [documents] = useState([
-    {
-      id: 1,
-      name: "Safety Protocol Manual v2.3",
-      type: "PDF",
-      size: "2.4 MB",
-      uploadedBy: "Arjun Nair",
-      uploadDate: "2024-01-15",
-      status: "processed",
-      language: "English",
-      department: "Engineering",
-      urgency: "high",
-      aiSummary: "Updated safety protocols for station operations with new emergency procedures.",
-      tags: ["safety", "emergency", "protocols"],
-      comments: 3,
-      shares: 7
-    },
-    {
-      id: 2,
-      name: "Quarterly Budget Report Q4",
-      type: "XLSX",
-      size: "1.8 MB",
-      uploadedBy: "Priya Menon",
-      uploadDate: "2024-01-14",
-      status: "processing",
-      language: "English",
-      department: "Finance",
-      urgency: "medium",
-      aiSummary: "Processing financial data and budget allocations...",
-      tags: ["budget", "quarterly", "finance"],
-      comments: 1,
-      shares: 4
-    },
-    {
-      id: 3,
-      name: "Vendor Contract Agreement",
-      type: "DOCX",
-      size: "856 KB",
-      uploadedBy: "Rajesh Kumar",
-      uploadDate: "2024-01-13",
-      status: "processed",
-      language: "English",
-      department: "Procurement",
-      urgency: "high",
-      aiSummary: "Contract terms with new vendor for maintenance services, includes pricing and SLA details.",
-      tags: ["contract", "vendor", "maintenance"],
-      comments: 5,
-      shares: 2
-    },
-    {
-      id: 4,
-      name: "സുരക്ഷാ നിർദ്ദേശങ്ങൾ",
-      type: "PDF",
-      size: "3.1 MB",
-      uploadedBy: "Meera Pillai",
-      uploadDate: "2024-01-12",
-      status: "processed",
-      language: "Malayalam",
-      department: "Engineering",
-      urgency: "medium",
-      aiSummary: "Safety guidelines in Malayalam for local staff and emergency procedures.",
-      tags: ["സുരക്ഷ", "നിർദ്ദേശങ്ങൾ", "malayalam"],
-      comments: 2,
-      shares: 8
+  const fetchDocs = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/documents");
+      console.log("Fetched documents:", data);
+      setDocs(data.documents || []);
+    } catch (e: any) {
+      console.error("Failed to fetch documents:", e);
+      toast({ title: "Failed to load documents", description: e.message || "" });
     }
-  ]);
+  }, [toast]);
+
+  useEffect(() => {
+    fetchDocs();
+  }, [fetchDocs]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -176,32 +135,86 @@ const DocumentManagement = () => {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    
     const files = Array.from(e.dataTransfer.files);
-    handleFileUpload(files);
+    if (files && files.length > 0) {
+      setStagedFile(files[0]);
+      setActiveTab("upload");
+    }
   }, []);
 
-  const handleFileUpload = (files: File[]) => {
-    if (files.length === 0) return;
+  const handleFileSelect = useCallback((files: File[]) => {
+    if (!files || files.length === 0) return;
+    setStagedFile(files[0]);
+    setActiveTab("upload");
+  }, []);
+
+  const handleSubmitUpload = async () => {
+    if (!stagedFile) {
+      toast({ title: "No file selected", description: "Please select a document first." });
+      return;
+    }
 
     setIsProcessing(true);
-    setUploadProgress(0);
+    setUploadProgress(10);
+    try {
+      const form = new FormData();
+      form.append("file", stagedFile);
+      form.append("title", stagedFile.name);
+      form.append("sector", (sector as string) || "general");
 
-    // Simulate file upload and AI processing
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          toast({
-            title: "Upload Successful",
-            description: `${files.length} document(s) uploaded and processed successfully.`,
-          });
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
+      const parsedTags = tagsText
+        .split(",")
+        .map(t => t.trim())
+        .filter(Boolean);
+      form.append("tags", JSON.stringify(parsedTags));
+
+      if (documentType) form.append("documentType", documentType);
+      if (language) form.append("language", language);
+      if (urgency) form.append("urgency", urgency);
+      if (department) form.append("targetDepartment", department);
+      if (description) form.append("description", description);
+
+      await apiUpload("/api/documents/upload", form);
+
+      setUploadProgress(100);
+      toast({ title: "Upload Successful", description: `${stagedFile.name} uploaded.` });
+
+      // reset staged state
+      setStagedFile(null);
+      setDocumentType("");
+      setUrgency("");
+      setDepartment("");
+      setLanguage("");
+      setTagsText("");
+      setDescription("");
+
+      // refresh library after a short delay
+      setTimeout(() => {
+        fetchDocs();
+        setActiveTab("documents");
+        setIsProcessing(false);
+        setUploadProgress(0);
+      }, 600);
+    } catch (e: any) {
+      setIsProcessing(false);
+      setUploadProgress(0);
+      toast({ title: "Upload failed", description: e.message || "" });
+    }
+  };
+
+  const handleDeleteDoc = async (id: string) => {
+    const confirm = window.confirm("Delete this document? This action cannot be undone.");
+    if (!confirm) return;
+    try {
+      setDeletingId(id);
+      await apiFetch(`/api/documents/${id}`, { method: "DELETE" });
+      toast({ title: "Deleted", description: "Document removed from library." });
+      setDocs(prev => prev.filter(d => d.id !== id));
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e.message || "" });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -218,7 +231,7 @@ const DocumentManagement = () => {
   };
 
   const getFileIcon = (type: string) => {
-    switch (type.toLowerCase()) {
+    switch ((type || "").toLowerCase()) {
       case "pdf":
         return <FileText className="w-5 h-5 text-destructive" />;
       case "docx":
@@ -317,7 +330,7 @@ const DocumentManagement = () => {
                     multiple
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
                     className="hidden"
-                    onChange={(e) => handleFileUpload(Array.from(e.target.files || []))}
+                    onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
                   />
                 </div>
 
@@ -326,7 +339,7 @@ const DocumentManagement = () => {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="document-type">Document Type</Label>
-                      <Select>
+                      <Select value={documentType} onValueChange={setDocumentType}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select document type" />
                         </SelectTrigger>
@@ -343,7 +356,7 @@ const DocumentManagement = () => {
 
                     <div>
                       <Label htmlFor="urgency">Urgency Level</Label>
-                      <Select>
+                      <Select value={urgency} onValueChange={setUrgency}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select urgency" />
                         </SelectTrigger>
@@ -357,7 +370,7 @@ const DocumentManagement = () => {
 
                     <div>
                       <Label htmlFor="department">Target Department</Label>
-                      <Select>
+                      <Select value={department} onValueChange={setDepartment}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select department" />
                         </SelectTrigger>
@@ -374,7 +387,7 @@ const DocumentManagement = () => {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="language">Document Language</Label>
-                      <Select>
+                      <Select value={language} onValueChange={setLanguage}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select language" />
                         </SelectTrigger>
@@ -391,6 +404,8 @@ const DocumentManagement = () => {
                       <Input
                         id="tags"
                         placeholder="e.g., safety, budget, urgent"
+                        value={tagsText}
+                        onChange={(e) => setTagsText(e.target.value)}
                       />
                     </div>
 
@@ -400,10 +415,28 @@ const DocumentManagement = () => {
                         id="description"
                         placeholder="Brief description of the document..."
                         rows={3}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
                       />
                     </div>
                   </div>
                 </div>
+
+                {/* Staged file preview and submit */}
+                {stagedFile && (
+                  <div className="flex items-center justify-between p-4 border rounded-md">
+                    <div className="text-sm">
+                      <div className="font-medium">{stagedFile.name}</div>
+                      <div className="text-muted-foreground">{(stagedFile.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" onClick={() => setStagedFile(null)}>Clear</Button>
+                      <Button onClick={handleSubmitUpload} disabled={isProcessing}>
+                        Upload to Library
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Processing Status */}
                 {isProcessing && (
@@ -411,11 +444,11 @@ const DocumentManagement = () => {
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-3 mb-3">
                         <Brain className="w-5 h-5 text-primary animate-pulse" />
-                        <span className="font-medium text-primary">AI Processing in Progress...</span>
+                        <span className="font-medium text-primary">Uploading...</span>
                       </div>
                       <Progress value={uploadProgress} className="mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Extracting key points, deadlines, and generating summary...
+                        Please wait while we upload your document
                       </p>
                     </CardContent>
                   </Card>
@@ -460,126 +493,130 @@ const DocumentManagement = () => {
 
             {/* Documents Grid */}
             <div className="grid lg:grid-cols-2 gap-6">
-              {documents.map((doc) => (
-                <Card key={doc.id} className="kmrl-card">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        {getFileIcon(doc.type)}
-                        <div className="flex-1">
-                          <CardTitle className="text-lg leading-tight">{doc.name}</CardTitle>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {doc.type} • {doc.size}
-                            </Badge>
-                            <Badge className={`text-xs ${getUrgencyColor(doc.urgency)}`}>
-                              {doc.urgency}
-                            </Badge>
+              {docs.map((doc) => {
+                const urgency = (doc.urgency || "").toLowerCase();
+                const language = doc.language || "";
+                const department = doc.targetDepartment || "";
+                const uploadedDate = doc.createdAt ? new Date(doc.createdAt) : null;
+                const sizeKb = doc.fileSize ? (doc.fileSize / 1024).toFixed(1) : "";
+                const uploaderName = doc.uploaderName || "You";
+                return (
+                  <Card key={doc.id} className="kmrl-card">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start space-x-3">
+                          {getFileIcon(doc.mimeType?.split("/")[1] || "")}
+                          <div className="flex-1">
+                            <CardTitle className="text-lg leading-tight">{doc.title || doc.fileName}</CardTitle>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <Badge variant="outline" className="text-xs">
+                                {doc.mimeType} {sizeKb && `• ${sizeKb} KB`}
+                              </Badge>
+                              {urgency && (
+                                <Badge className={`text-xs ${getUrgencyColor(urgency)}`}>{urgency}</Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          {language && (
+                            <Badge variant="outline" className="text-xs">{language}</Badge>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => window.open(doc.url, "_blank")}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Document
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => window.open(doc.url, "_blank")}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
+                                <Share className="w-4 h-4 mr-2" />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast({ title: "Comment feature", description: "Comment system will be implemented soon" })}>
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                Add Comment
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteDoc(doc.id)} className="text-destructive focus:text-destructive">
+                                <X className="w-4 h-4 mr-2" />
+                                {deletingId === doc.id ? "Deleting..." : "Delete"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon("processed")}
+                          <span className="text-muted-foreground">Ready</span>
+                        </div>
+                        {uploadedDate && (
+                          <Badge variant="outline" className="text-xs">
+                            {uploadedDate.toISOString().slice(0, 10)}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="grid gap-1 text-sm">
+                        <div className="text-card-foreground"><span className="font-semibold">Uploaded by:</span> {uploaderName}</div>
+                        {department && (
+                          <div className="text-card-foreground"><span className="font-semibold">Department:</span> {department.charAt(0).toUpperCase() + department.slice(1)}</div>
+                        )}
+                        {uploadedDate && (
+                          <div className="text-card-foreground"><span className="font-semibold">Date:</span> {uploadedDate.toISOString().slice(0, 10)}</div>
+                        )}
+                      </div>
+
+                      {doc.description && (
+                        <div className="p-4 rounded-md bg-muted/50">
+                          <div className="font-medium mb-1">AI Summary</div>
+                          <p className="text-sm text-muted-foreground">{doc.description}</p>
+                        </div>
+                      )}
+
+                      {doc.tags && doc.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {doc.tags.map((tag: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              <Tag className="w-3 h-3 mr-1" />
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center gap-4 text-muted-foreground text-sm">
+                          <div className="flex items-center gap-1"><MessageSquare className="w-4 h-4" /> 3</div>
+                          <div className="flex items-center gap-1"><Share className="w-4 h-4" /> 7</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" onClick={() => window.open(doc.url, "_blank")}>
+                            <Eye className="w-4 h-4 mr-2" /> View
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.name }); setActiveTab("export"); }}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Document
-                          </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.name }); }}>
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.name }); setActiveTab("export"); }}>
-                            <Share className="w-4 h-4 mr-2" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Add Comment
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(doc.status)}
-                        <span className="text-muted-foreground">
-                          {doc.status === "processing" ? "Processing..." : "Ready"}
-                        </span>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {doc.language}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      <p className="text-muted-foreground">
-                        <strong>Uploaded by:</strong> {doc.uploadedBy}
-                      </p>
-                      <p className="text-muted-foreground">
-                        <strong>Department:</strong> {doc.department}
-                      </p>
-                      <p className="text-muted-foreground">
-                        <strong>Date:</strong> {doc.uploadDate}
-                      </p>
-                    </div>
-
-                    {doc.status === "processed" && (
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Brain className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium text-card-foreground">AI Summary</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{doc.aiSummary}</p>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-1">
-                      {doc.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          <Tag className="w-3 h-3 mr-1" />
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <MessageSquare className="w-4 h-4" />
-                          <span>{doc.comments}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Share className="w-4 h-4" />
-                          <span>{doc.shares}</span>
+                          <Button variant="outline" onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
+                            <Download className="w-4 h-4 mr-2" /> Export
+                          </Button>
+                          <Button onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
+                            <Share className="w-4 h-4 mr-2" /> Share
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Download className="w-4 h-4 mr-1" />
-                          Export
-                        </Button>
-                        <Button size="sm" variant="default" onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.name }); setActiveTab("export"); }}>
-                          <Share className="w-4 h-4 mr-1" />
-                          Share
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 

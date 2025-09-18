@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import {
   Bookmark
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
+import { apiFetch } from "@/lib/api";
 
 const SearchFilter = () => {
   const { sector } = useParams();
@@ -40,84 +41,8 @@ const SearchFilter = () => {
     status: [],
     urgency: []
   });
-
-  const searchResults = [
-    {
-      id: 1,
-      title: "Metro Rail Safety Protocol Update 2024",
-      content: "Updated safety guidelines for all metro rail operations including emergency procedures, evacuation protocols, and staff training requirements...",
-      type: "PDF",
-      department: "Engineering",
-      language: "English",
-      status: "active",
-      urgency: "high",
-      date: "2024-01-15",
-      author: "Arjun Nair",
-      tags: ["safety", "protocol", "emergency", "training"],
-      relevanceScore: 98,
-      highlights: ["safety guidelines", "emergency procedures", "evacuation protocols"]
-    },
-    {
-      id: 2,
-      title: "സുരക്ഷാ നിർദ്ദേശങ്ങൾ - മെട്രോ റെയിൽ",
-      content: "മെട്രോ റെയിൽ സേവനങ്ങൾക്കായുള്ള സുരക്ഷാ നിർദ്ദേശങ്ങൾ. അടിയന്തര സാഹചര്യങ്ങളിലെ നടപടിക്രമങ്ങൾ, ജീവനക്കാരുടെ പരിശീലനം...",
-      type: "PDF",
-      department: "Engineering",
-      language: "Malayalam",
-      status: "active",
-      urgency: "high",
-      date: "2024-01-12",
-      author: "Meera Pillai",
-      tags: ["സുരക്ഷ", "നിർദ്ദേശങ്ങൾ", "അടിയന്തരം"],
-      relevanceScore: 95,
-      highlights: ["സുരക്ഷാ നിർദ്ദേശങ്ങൾ", "അടിയന്തര സാഹചര്യങ്ങൾ"]
-    },
-    {
-      id: 3,
-      title: "Quarterly Budget Analysis Q4 2023",
-      content: "Comprehensive financial analysis covering operational costs, revenue projections, and budget variance analysis for the fourth quarter...",
-      type: "XLSX",
-      department: "Finance",
-      language: "English",
-      status: "completed",
-      urgency: "medium",
-      date: "2024-01-14",
-      author: "Priya Menon",
-      tags: ["budget", "analysis", "quarterly", "finance"],
-      relevanceScore: 87,
-      highlights: ["budget analysis", "operational costs", "revenue projections"]
-    },
-    {
-      id: 4,
-      title: "Vendor Management System Implementation",
-      content: "Implementation guide for the new vendor management system including procurement workflows, approval processes, and contract management...",
-      type: "DOCX",
-      department: "Procurement",
-      language: "English",
-      status: "pending",
-      urgency: "medium",
-      date: "2024-01-13",
-      author: "Rajesh Kumar",
-      tags: ["vendor", "management", "procurement", "workflow"],
-      relevanceScore: 82,
-      highlights: ["vendor management", "procurement workflows", "approval processes"]
-    },
-    {
-      id: 5,
-      title: "Environmental Impact Assessment Report",
-      content: "Detailed environmental impact assessment for metro rail expansion project including air quality, noise pollution, and mitigation measures...",
-      type: "PDF",
-      department: "Engineering",
-      language: "English",
-      status: "under-review",
-      urgency: "low",
-      date: "2024-01-10",
-      author: "Dr. Suresh Kumar",
-      tags: ["environment", "assessment", "expansion", "pollution"],
-      relevanceScore: 76,
-      highlights: ["environmental impact", "air quality", "mitigation measures"]
-    }
-  ];
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -152,6 +77,42 @@ const SearchFilter = () => {
     if (score >= 75) return "text-warning";
     return "text-muted-foreground";
   };
+
+  const runSearch = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.set("q", searchQuery.trim());
+      if (sector) params.set("sector", sector);
+      const data = await apiFetch(`/api/search?${params.toString()}`);
+      const normalized = (data.results || []).map((d: any) => ({
+        id: d.id,
+        title: d.title || d.fileName,
+        content: d.description || "",
+        type: (d.mimeType || "").split("/")[1]?.toUpperCase() || "FILE",
+        department: d.sector || "",
+        language: "",
+        status: "completed",
+        urgency: "low",
+        date: d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "",
+        author: "",
+        tags: d.tags || [],
+        relevanceScore: 90,
+        highlights: [],
+        url: d.url,
+      }));
+      setResults(normalized);
+    } catch (e) {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    runSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -302,9 +263,9 @@ const SearchFilter = () => {
                       className="pl-10"
                     />
                   </div>
-                  <Button className="px-6">
+                  <Button className="px-6" onClick={runSearch} disabled={loading}>
                     <Search className="w-4 h-4 mr-2" />
-                    Search
+                    {loading ? "Searching..." : "Search"}
                   </Button>
                 </div>
                 <div className="flex items-center justify-between mt-3">
@@ -323,7 +284,7 @@ const SearchFilter = () => {
             {/* Search Results Header */}
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-foreground">
-                Search Results ({searchResults.length} found)
+                Search Results ({results.length} found)
               </h2>
               <div className="flex items-center space-x-2">
                 <Select defaultValue="relevance">
@@ -341,7 +302,7 @@ const SearchFilter = () => {
 
             {/* Results List */}
             <div className="space-y-4">
-              {searchResults.map((result) => (
+              {results.map((result) => (
                 <Card key={result.id} className="kmrl-card hover:shadow-medium transition-shadow">
                   <CardContent className="p-6">
                     <div className="space-y-4">
@@ -372,8 +333,8 @@ const SearchFilter = () => {
                               <span>{result.date}</span>
                             </div>
                             <div className="flex items-center space-x-1">
-                              {getStatusIcon(result.status)}
-                              <span className="capitalize">{result.status.replace("-", " ")}</span>
+                              {getStatusIcon("completed")}
+                              <span className="capitalize">completed</span>
                             </div>
                           </div>
                           
@@ -383,8 +344,8 @@ const SearchFilter = () => {
                         </div>
                         
                         <div className="flex items-start space-x-2 ml-4">
-                          <Badge className={`text-xs ${getUrgencyColor(result.urgency)}`}>
-                            {result.urgency}
+                          <Badge className={`text-xs ${getUrgencyColor("low")}`}>
+                            low
                           </Badge>
                           <Button variant="ghost" size="sm">
                             <Bookmark className="w-4 h-4" />
@@ -399,7 +360,7 @@ const SearchFilter = () => {
                             Key Highlights
                           </h4>
                           <div className="flex flex-wrap gap-1">
-                            {result.highlights.map((highlight, index) => (
+                            {result.highlights.map((highlight: string, index: number) => (
                               <Badge key={index} variant="secondary" className="text-xs">
                                 {highlight}
                               </Badge>
@@ -411,7 +372,7 @@ const SearchFilter = () => {
                       {/* Tags and Actions */}
                       <div className="flex items-center justify-between pt-3 border-t border-border">
                         <div className="flex flex-wrap gap-1">
-                          {result.tags.map((tag, index) => (
+                          {result.tags.map((tag: string, index: number) => (
                             <Badge key={index} variant="outline" className="text-xs">
                               <Tag className="w-3 h-3 mr-1" />
                               {tag}
@@ -420,12 +381,11 @@ const SearchFilter = () => {
                         </div>
                         
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-muted-foreground">by {result.author}</span>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => window.open(result.url, "_blank") }>
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => window.open(result.url, "_blank") }>
                             <Download className="w-4 h-4 mr-1" />
                             Download
                           </Button>
@@ -439,8 +399,8 @@ const SearchFilter = () => {
 
             {/* Load More */}
             <div className="text-center">
-              <Button variant="outline" className="px-8">
-                Load More Results
+              <Button variant="outline" className="px-8" onClick={runSearch} disabled={loading}>
+                {loading ? "Loading..." : "Reload Results"}
               </Button>
             </div>
           </div>

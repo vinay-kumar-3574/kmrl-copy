@@ -7,16 +7,30 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Node modules
+node_modules/
+backend/node_modules/
+kmrl-flow-smart/node_modules/
+
+# Environment files
+backend/.env
+kmrl-flow-smart/.env
+backend/.env.local
+kmrl-flow-smart/.env.local
 *.local
 
-# Editor directories and files
+# Build outputs
+dist/
+dist-ssr/
+backend/dist/
+kmrl-flow-smart/dist/
+
+# Editor/OS
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

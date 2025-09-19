@@ -56,3 +56,55 @@ export async function apiUpload(path: string, form: FormData) {
 	}
 	return parseJsonOrThrow(res);
 }
+
+// Project API functions
+export interface Project {
+	id: string;
+	title: string;
+	description?: string;
+	assignedBy: string;
+	assignedDate?: string;
+	deadline: string;
+	urgency: "low" | "medium" | "high";
+	status: "planning" | "in-progress" | "review" | "completed" | "overdue";
+	progress: number;
+	category: string;
+	documents: number;
+	collaborators: string[];
+	tags: string[];
+	estimatedHours: number;
+	spentHours: number;
+	assignedTo?: string;
+	createdAt?: number;
+	updatedAt?: number;
+}
+
+export async function getAssignedProjects(): Promise<Project[]> {
+	const response = await apiFetch("/api/projects/assigned");
+	return response.projects || [];
+}
+
+export async function getAllProjects(): Promise<Project[]> {
+	const response = await apiFetch("/api/projects");
+	return response.projects || [];
+}
+
+export async function createProject(project: Omit<Project, "id" | "createdAt" | "updatedAt">): Promise<{ id: string }> {
+	return await apiFetch("/api/projects", {
+		method: "POST",
+		body: JSON.stringify(project),
+	});
+}
+
+export async function updateProject(id: string, updates: Partial<Pick<Project, "status" | "progress" | "spentHours" | "description">>): Promise<{ success: boolean }> {
+	return await apiFetch(`/api/projects/${id}`, {
+		method: "PATCH",
+		body: JSON.stringify(updates),
+	});
+}
+
+export async function createSampleProjects(): Promise<{ success: boolean; projectIds: string[] }> {
+	return await apiFetch("/api/projects/sample", {
+		method: "POST",
+	});
+}

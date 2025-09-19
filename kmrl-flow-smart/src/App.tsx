@@ -21,7 +21,6 @@ import NotFound from "./pages/NotFound";
 import EngineeringDashboard from "./pages/dashboards/EngineeringDashboard";
 import FinanceDashboard from "./pages/dashboards/FinanceDashboard";
 import ProcurementDashboard from "./pages/dashboards/ProcurementDashboard";
-
 const queryClient = new QueryClient();
 
 const App = () => (

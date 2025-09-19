@@ -43,7 +43,7 @@ const Landing = () => {
                 <FileText className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-xl text-foreground">KMRL CMS</h1>
+                <h1 className="font-bold text-xl text-foreground">KMRL Flow Smart</h1>
                 <p className="text-sm text-muted-foreground">Smart Document Management</p>
               </div>
             </div>

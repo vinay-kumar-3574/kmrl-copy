@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +25,12 @@ import {
   Share2,
   Download,
   Flag,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { getAssignedProjects, updateProject, createSampleProjects, type Project } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const AssignedProjects = () => {
   const { sector } = useParams();
@@ -35,99 +38,86 @@ const AssignedProjects = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const projects = [
-    {
-      id: 1,
-      title: "Metro Line 3 Safety Assessment",
-      description: "Comprehensive safety evaluation for the new metro line including station safety protocols and emergency procedures.",
-      assignedBy: "Arjun Nair",
-      assignedDate: "2024-01-15",
-      deadline: "2024-11-30",
-      urgency: "high",
-      status: "in-progress",
-      progress: 65,
-      category: "Safety & Compliance",
-      documents: 12,
-      collaborators: ["Priya Menon", "Meera Pillai", "Rajesh Kumar"],
-      tags: ["Safety", "Assessment", "Line-3"],
-      estimatedHours: 120,
-      spentHours: 78,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      title: "Q2 Budget Analysis Report",
-      description: "Detailed financial analysis and budget allocation report for Q2 operations and maintenance costs.",
-      assignedBy: "Priya Menon",
-      assignedDate: "2024-02-01",
-      deadline: "2024-10-15",
-      urgency: "medium",
-      status: "review",
-      progress: 90,
-      category: "Financial Analysis",
-      documents: 8,
-      collaborators: ["Suresh Babu", "Anitha Raj"],
-      tags: ["Budget", "Q2", "Analysis"],
-      estimatedHours: 80,
-      spentHours: 72,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 3,
-      title: "Vendor Contract Negotiations",
-      description: "Negotiate new contracts with maintenance vendors and update procurement policies for better cost efficiency.",
-      assignedBy: "Rajesh Kumar",
-      assignedDate: "2024-01-20",
-      deadline: "2024-12-31",
-      urgency: "low",
-      status: "planning",
-      progress: 25,
-      category: "Procurement",
-      documents: 15,
-      collaborators: ["Anitha Raj", "Suresh Babu", "Meera Pillai"],
-      tags: ["Procurement", "Contracts", "Vendors"],
-      estimatedHours: 200,
-      spentHours: 50,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 4,
-      title: "Station Accessibility Upgrade",
-      description: "Design and implement accessibility improvements across all metro stations to meet international standards.",
-      assignedBy: "Meera Pillai",
-      assignedDate: "2024-03-01",
-      deadline: "2024-10-30",
-      urgency: "high",
-      status: "completed",
-      progress: 100,
-      category: "Infrastructure",
-      documents: 20,
-      collaborators: ["Arjun Nair", "Priya Menon"],
-      tags: ["Accessibility", "Upgrade", "Infrastructure"],
-      estimatedHours: 160,
-      spentHours: 155,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: 5,
-      title: "Emergency Response Protocol Update",
-      description: "Revise and update emergency response protocols based on latest safety regulations and best practices.",
-      assignedBy: "Arjun Nair",
-      assignedDate: "2024-02-15",
-      deadline: "2024-11-15",
-      urgency: "high",
-      status: "overdue",
-      progress: 45,
-      category: "Safety & Compliance",
-      documents: 6,
-      collaborators: ["Meera Pillai"],
-      tags: ["Emergency", "Protocols", "Safety"],
-      estimatedHours: 60,
-      spentHours: 40,
-      avatar: "/placeholder.svg"
+  // Fetch assigned projects on component mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getAssignedProjects();
+        setProjects(data);
+      } catch (err) {
+        console.error("Failed to fetch assigned projects:", err);
+        setError(err instanceof Error ? err.message : "Failed to load projects");
+        toast({
+          title: "Error",
+          description: "Failed to load assigned projects. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [toast]);
+
+  // Function to update project status or progress
+  const handleProjectUpdate = async (projectId: string, updates: Partial<Pick<Project, "status" | "progress" | "spentHours">>) => {
+    try {
+      await updateProject(projectId, updates);
+      
+      // Update local state
+      setProjects(prev => prev.map(project => 
+        project.id === projectId 
+          ? { ...project, ...updates }
+          : project
+      ));
+      
+      toast({
+        title: "Success",
+        description: "Project updated successfully",
+      });
+    } catch (err) {
+      console.error("Failed to update project:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive",
+      });
     }
-  ];
+  };
+
+  // Function to create sample projects for testing
+  const handleCreateSampleProjects = async () => {
+    try {
+      setLoading(true);
+      await createSampleProjects();
+      
+      // Refresh the projects list
+      const data = await getAssignedProjects();
+      setProjects(data);
+      
+      toast({
+        title: "Success",
+        description: "Sample projects created successfully",
+      });
+    } catch (err) {
+      console.error("Failed to create sample projects:", err);
+      toast({
+        title: "Error",
+        description: "Failed to create sample projects. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -205,12 +195,21 @@ const AssignedProjects = () => {
       <main className="dashboard-content flex-1">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Assigned Projects
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your assigned projects with deadlines, progress tracking, and collaboration tools.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                Assigned Projects
+              </h1>
+              <p className="text-muted-foreground">
+                Manage your assigned projects with deadlines, progress tracking, and collaboration tools.
+              </p>
+            </div>
+            {projects.length === 0 && !loading && (
+              <Button onClick={handleCreateSampleProjects} variant="outline">
+                Create Sample Projects
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -287,9 +286,35 @@ const AssignedProjects = () => {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && (
+          <Card className="kmrl-card">
+            <CardContent className="p-12 text-center">
+              <Loader2 className="w-8 h-8 text-primary mx-auto mb-4 animate-spin" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">Loading Projects</h3>
+              <p className="text-muted-foreground">Please wait while we fetch your assigned projects...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <Card className="kmrl-card">
+            <CardContent className="p-12 text-center">
+              <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">Error Loading Projects</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Projects Grid */}
-        <div className="space-y-6">
-          {filteredProjects.map((project) => (
+        {!loading && !error && (
+          <div className="space-y-6">
+            {filteredProjects.map((project) => (
             <Card key={project.id} className="kmrl-card">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -345,6 +370,22 @@ const AssignedProjects = () => {
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Project
                       </DropdownMenuItem>
+                      {project.status !== "completed" && (
+                        <DropdownMenuItem 
+                          onClick={() => handleProjectUpdate(project.id, { status: "completed", progress: 100 })}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Mark as Completed
+                        </DropdownMenuItem>
+                      )}
+                      {project.status !== "in-progress" && project.status !== "completed" && (
+                        <DropdownMenuItem 
+                          onClick={() => handleProjectUpdate(project.id, { status: "in-progress" })}
+                        >
+                          <Clock className="w-4 h-4 mr-2" />
+                          Start Project
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem>
                         <Share2 className="w-4 h-4 mr-2" />
                         Share Project
@@ -414,17 +455,23 @@ const AssignedProjects = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
 
-        {filteredProjects.length === 0 && (
-          <Card className="kmrl-card">
-            <CardContent className="p-12 text-center">
-              <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Projects Found</h3>
-              <p className="text-muted-foreground">No projects match your current filters. Try adjusting your search criteria.</p>
-            </CardContent>
-          </Card>
+            {filteredProjects.length === 0 && (
+              <Card className="kmrl-card">
+                <CardContent className="p-12 text-center">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Projects Found</h3>
+                  <p className="text-muted-foreground">
+                    {projects.length === 0 
+                      ? "You don't have any assigned projects yet." 
+                      : "No projects match your current filters. Try adjusting your search criteria."
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
       </main>
     </div>

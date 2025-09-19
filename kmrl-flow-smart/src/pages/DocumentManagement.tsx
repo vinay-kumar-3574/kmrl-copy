@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { apiFetch, apiUpload } from "@/lib/api";
+import { DepartmentShareModal } from "@/components/DepartmentShareModal";
 
 const DocumentManagement = () => {
   const { sector } = useParams();
@@ -47,12 +48,7 @@ const DocumentManagement = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const { toast } = useToast();
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareDept, setShareDept] = useState<"engineering" | "finance" | "procurement" | null>(null);
-  const [employeeSearch, setEmployeeSearch] = useState("");
-  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
-  const [selectedEmployees, setSelectedEmployees] = useState<Record<string, boolean>>({});
-  const [selectAll, setSelectAll] = useState(false);
+  const [departmentShareOpen, setDepartmentShareOpen] = useState(false);
   const [docs, setDocs] = useState<any[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
@@ -63,74 +59,9 @@ const DocumentManagement = () => {
   const [tagsText, setTagsText] = useState<string>("");
   const [description, setDescription] = useState<string>("");
 
-  const [deptEmployees, setDeptEmployees] = useState<Record<string, { id: string; name: string; role?: string; department: "engineering" | "finance" | "procurement" }[]>>({});
-
-  const fetchEmployeesByDept = useCallback(async (dept: "engineering" | "finance" | "procurement") => {
-    try {
-      const cap = dept.charAt(0).toUpperCase() + dept.slice(1);
-      // Try capitalized
-      let res = await apiFetch(`/api/employees?department=${encodeURIComponent(cap)}`);
-      let list: any[] = Array.isArray(res?.employees) ? res.employees : [];
-      // Fallback: try lowercase
-      if (list.length === 0) {
-        res = await apiFetch(`/api/employees?department=${encodeURIComponent(dept)}`);
-        list = Array.isArray(res?.employees) ? res.employees : [];
-      }
-      // Fallback: fetch all and filter client-side case-insensitive
-      if (list.length === 0) {
-        res = await apiFetch(`/api/employees`);
-        const all = Array.isArray(res?.employees) ? res.employees : [];
-        list = all.filter((e: any) => String(e.department || "").toLowerCase() === dept);
-      }
-      const normalized = list.map((e: any) => ({
-        id: e.id,
-        name: e.name || e.email || e.employeeId || "",
-        role: e.title || "",
-        department: dept,
-      }));
-      setDeptEmployees(prev => ({ ...prev, [dept]: normalized }));
-    } catch (e) {
-      console.error("Failed to load employees for dept", dept, e);
-      setDeptEmployees(prev => ({ ...prev, [dept]: [] }));
-    }
-  }, []);
-
-  const openShareFor = (dept: "engineering" | "finance" | "procurement") => {
-    setShareDept(dept);
-    setEmployeeSearch("");
-    setEmployeeFilter("all");
-    setSelectedEmployees({});
-    setSelectAll(false);
-    setShareOpen(true);
-    if (!deptEmployees[dept]) {
-      fetchEmployeesByDept(dept);
-    }
-  };
-
-  const filteredEmployees = (deptEmployees[shareDept || ""] || []).filter(e => {
-    if (!shareDept) return false;
-    const inDept = e.department === shareDept;
-    const query = employeeSearch.trim().toLowerCase();
-    const matchesSearch = query === "" || e.name.toLowerCase().includes(query) || e.id.toLowerCase().includes(query);
-    const matchesFilter = employeeFilter === "all" || e.role.toLowerCase().includes(employeeFilter.toLowerCase());
-    return inDept && matchesSearch && matchesFilter;
-  });
-
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectAll(checked);
-    const next: Record<string, boolean> = {};
-    filteredEmployees.forEach(e => { next[e.id] = checked; });
-    setSelectedEmployees(next);
-  };
-
-  const toggleEmployee = (id: string, checked: boolean) => {
-    setSelectedEmployees(prev => ({ ...prev, [id]: checked }));
-  };
-
-  const confirmShare = () => {
-    const selectedIds = Object.keys(selectedEmployees).filter(id => selectedEmployees[id]);
-    toast({ title: "Shared", description: `Document shared with ${selectedIds.length} employee(s) in ${shareDept}.` });
-    setShareOpen(false);
+  const openDepartmentShare = (docId: string, docName: string) => {
+    setCurrentShareDoc({ id: docId, name: docName });
+    setDepartmentShareOpen(true);
   };
 
   const fetchDocs = useCallback(async () => {
@@ -563,9 +494,9 @@ const DocumentManagement = () => {
                                 <Download className="w-4 h-4 mr-2" />
                                 Download
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
+                              <DropdownMenuItem onClick={() => openDepartmentShare(doc.id, doc.title || doc.fileName)}>
                                 <Share className="w-4 h-4 mr-2" />
-                                Share
+                                Share with Department
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => toast({ title: "Comment feature", description: "Comment system will be implemented soon" })}>
                                 <MessageSquare className="w-4 h-4 mr-2" />
@@ -634,8 +565,8 @@ const DocumentManagement = () => {
                           <Button variant="outline" onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
                             <Download className="w-4 h-4 mr-2" /> Export
                           </Button>
-                          <Button onClick={() => { setCurrentShareDoc({ id: doc.id, name: doc.title || doc.fileName }); setActiveTab("export"); }}>
-                            <Share className="w-4 h-4 mr-2" /> Share
+                          <Button onClick={() => openDepartmentShare(doc.id, doc.title || doc.fileName)}>
+                            <Share className="w-4 h-4 mr-2" /> Share with Department
                           </Button>
                         </div>
                       </div>
@@ -695,24 +626,16 @@ const DocumentManagement = () => {
 
                     <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-card-foreground">Share with Departments</h3>
-                    <div className="space-y-3">
-                      <Button variant="outline" className="w-full justify-start" onClick={() => openShareFor("engineering")}>
-                        <Users className="w-4 h-4 mr-2" />
-                        Share with Engineering
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start" onClick={() => openShareFor("finance")}>
-                        <Users className="w-4 h-4 mr-2" />
-                        Share with Finance
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start" onClick={() => openShareFor("procurement")}>
-                        <Users className="w-4 h-4 mr-2" />
-                        Share with Procurement
-                      </Button>
-                      <Button className="w-full">
-                        <Share className="w-4 h-4 mr-2" />
-                        Share with All Departments
-                      </Button>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Share this document with specific departments and employees. This will create assigned projects for the selected employees.
+                    </p>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => currentShareDoc && openDepartmentShare(currentShareDoc.id, currentShareDoc.name)}
+                    >
+                      <Share className="w-4 h-4 mr-2" />
+                      Share with Department
+                    </Button>
                   </div>
                 </div>
 
@@ -731,70 +654,15 @@ const DocumentManagement = () => {
       </main>
     </div>
 
-    {/* Share Modal */}
-    <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
-            {shareDept ? `Share with ${shareDept.charAt(0).toUpperCase() + shareDept.slice(1)} Department` : "Share"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="flex gap-3 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} placeholder="Search employees by name or ID" className="pl-10" />
-            </div>
-            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="engineer">Engineer</SelectItem>
-                <SelectItem value="analyst">Analyst</SelectItem>
-                <SelectItem value="lead">Lead</SelectItem>
-                <SelectItem value="officer">Officer</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox id="select-all" checked={selectAll} onCheckedChange={(v) => toggleSelectAll(Boolean(v))} />
-            <Label htmlFor="select-all">Select All</Label>
-            <Badge variant="secondary" className="ml-auto">{filteredEmployees.length} found</Badge>
-          </div>
-
-          <div className="border rounded-md">
-            <ScrollArea className="h-60">
-              <div className="divide-y">
-                {filteredEmployees.map(emp => (
-                  <label key={emp.id} className="flex items-center gap-3 p-3 cursor-pointer">
-                    <Checkbox
-                      checked={!!selectedEmployees[emp.id]}
-                      onCheckedChange={(v) => toggleEmployee(emp.id, Boolean(v))}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-card-foreground">{emp.name}</div>
-                      <div className="text-xs text-muted-foreground">{emp.id} • {emp.role}</div>
-                    </div>
-                    <Badge variant="outline">{emp.department}</Badge>
-                  </label>
-                ))}
-                {filteredEmployees.length === 0 && (
-                  <div className="p-4 text-sm text-muted-foreground">No employees match your criteria.</div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setShareOpen(false)}>Cancel</Button>
-          <Button onClick={confirmShare} disabled={Object.values(selectedEmployees).every(v => !v)}>Share</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    {/* Department Share Modal */}
+    {currentShareDoc && (
+      <DepartmentShareModal
+        isOpen={departmentShareOpen}
+        onClose={() => setDepartmentShareOpen(false)}
+        documentId={currentShareDoc.id}
+        documentTitle={currentShareDoc.name}
+      />
+    )}
     </>
   );
 };

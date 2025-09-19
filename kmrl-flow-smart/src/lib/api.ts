@@ -75,6 +75,7 @@ export interface Project {
 	estimatedHours: number;
 	spentHours: number;
 	assignedTo?: string;
+	relatedDocumentId?: string;
 	createdAt?: number;
 	updatedAt?: number;
 }
@@ -106,5 +107,51 @@ export async function updateProject(id: string, updates: Partial<Pick<Project, "
 export async function createSampleProjects(): Promise<{ success: boolean; projectIds: string[] }> {
 	return await apiFetch("/api/projects/sample", {
 		method: "POST",
+	});
+}
+
+// Employee API functions
+export interface Employee {
+	id: string;
+	name: string;
+	employeeId: string;
+	department: string;
+	title?: string;
+	uid?: string;
+	email?: string;
+}
+
+export async function getEmployees(department?: string): Promise<Employee[]> {
+	const url = department ? `/api/employees?department=${encodeURIComponent(department)}` : "/api/employees";
+	const response = await apiFetch(url);
+	return response.employees || [];
+}
+
+export async function getEmployeeByUid(uid: string): Promise<Employee | null> {
+	const response = await apiFetch(`/api/employees?uid=${encodeURIComponent(uid)}`);
+	return response.employees?.[0] || null;
+}
+
+// Document sharing API functions
+export interface DocumentShareRequest {
+	department: string;
+	employeeIds: string[];
+	message?: string;
+}
+
+export interface DocumentShareResponse {
+	success: boolean;
+	projectIds: string[];
+	sharedWith: Array<{
+		id: string;
+		name: string;
+		department: string;
+	}>;
+}
+
+export async function shareDocumentWithDepartment(documentId: string, shareData: DocumentShareRequest): Promise<DocumentShareResponse> {
+	return await apiFetch(`/api/documents/${documentId}/share`, {
+		method: "POST",
+		body: JSON.stringify(shareData),
 	});
 }

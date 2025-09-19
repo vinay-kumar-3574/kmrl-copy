@@ -197,12 +197,12 @@ const AssignedProjects = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                Assigned Projects
-              </h1>
-              <p className="text-muted-foreground">
-                Manage your assigned projects with deadlines, progress tracking, and collaboration tools.
-              </p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Assigned Projects
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your assigned projects with deadlines, progress tracking, and collaboration tools.
+          </p>
             </div>
             {projects.length === 0 && !loading && (
               <Button onClick={handleCreateSampleProjects} variant="outline">
@@ -313,8 +313,8 @@ const AssignedProjects = () => {
 
         {/* Projects Grid */}
         {!loading && !error && (
-          <div className="space-y-6">
-            {filteredProjects.map((project) => (
+        <div className="space-y-6">
+          {filteredProjects.map((project) => (
             <Card key={project.id} className="kmrl-card">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -347,6 +347,11 @@ const AssignedProjects = () => {
                       <div className="flex items-center space-x-1">
                         <FileText className="w-4 h-4" />
                         <span>{project.documents} documents</span>
+                        {project.relatedDocumentId && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            From Document
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
@@ -366,6 +371,12 @@ const AssignedProjects = () => {
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
+                      {project.relatedDocumentId && (
+                        <DropdownMenuItem onClick={() => window.open(`/documents`, '_blank')}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Related Document
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem>
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Project
@@ -455,21 +466,21 @@ const AssignedProjects = () => {
                 </div>
               </CardContent>
             </Card>
-            ))}
+          ))}
 
-            {filteredProjects.length === 0 && (
-              <Card className="kmrl-card">
-                <CardContent className="p-12 text-center">
-                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Projects Found</h3>
+        {filteredProjects.length === 0 && (
+          <Card className="kmrl-card">
+            <CardContent className="p-12 text-center">
+              <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Projects Found</h3>
                   <p className="text-muted-foreground">
                     {projects.length === 0 
                       ? "You don't have any assigned projects yet." 
                       : "No projects match your current filters. Try adjusting your search criteria."
                     }
                   </p>
-                </CardContent>
-              </Card>
+            </CardContent>
+          </Card>
             )}
           </div>
         )}

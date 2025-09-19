@@ -126,6 +126,92 @@ router.post("/upload", authenticateUser, upload.single("file"), async (req, res,
 	}
 });
 
+// Share document with department and create assigned projects
+router.post("/:id/share", authenticateUser, async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { department, employeeIds, message } = req.body;
+		
+		if (!department || !employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+			return res.status(400).json({ error: { message: "Department and employee IDs are required" } });
+		}
+
+		// Get document details
+		const docRef = db.collection("documents").doc(id);
+		const docSnap = await docRef.get();
+		if (!docSnap.exists) return res.status(404).json({ error: { message: "Document not found" } });
+		const docData = docSnap.data();
+		
+		// Verify ownership
+		if (docData.ownerUid !== req.user.uid) {
+			return res.status(403).json({ error: { message: "Forbidden" } });
+		}
+
+		// Get employee details
+		const employeePromises = employeeIds.map(empId => 
+			db.collection("employees").doc(empId).get()
+		);
+		const employeeSnaps = await Promise.all(employeePromises);
+		const employees = employeeSnaps
+			.filter(snap => snap.exists)
+			.map(snap => ({ id: snap.id, ...snap.data() }));
+
+		if (employees.length === 0) {
+			return res.status(400).json({ error: { message: "No valid employees found" } });
+		}
+
+		// Create assigned projects for each employee
+		const batch = db.batch();
+		const projectIds = [];
+
+		for (const employee of employees) {
+			const projectRef = db.collection("projects").doc();
+			const projectData = {
+				title: `Review Document: ${docData.title}`,
+				description: message || `Please review the document "${docData.title}" shared by ${req.user.email || 'Unknown'}. ${docData.description || ''}`,
+				assignedBy: req.user.email || 'Unknown',
+				assignedDate: new Date().toISOString().split('T')[0],
+				deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+				urgency: docData.urgency || "medium",
+				status: "planning",
+				progress: 0,
+				category: "Document Review",
+				documents: 1,
+				collaborators: [req.user.email || 'Unknown'],
+				tags: ["Document Review", department, ...(docData.tags || [])],
+				estimatedHours: 4,
+				spentHours: 0,
+				assignedTo: employee.id,
+				sector: department,
+				relatedDocumentId: id,
+				createdAt: Date.now()
+			};
+			
+			batch.set(projectRef, projectData);
+			projectIds.push(projectRef.id);
+		}
+
+		// Update document with sharing information
+		const shareData = {
+			sharedWith: employeeIds,
+			sharedDepartment: department,
+			sharedAt: Date.now(),
+			sharedBy: req.user.uid
+		};
+		batch.update(docRef, shareData);
+
+		await batch.commit();
+
+		res.json({ 
+			success: true, 
+			projectIds,
+			sharedWith: employees.map(emp => ({ id: emp.id, name: emp.name, department: emp.department }))
+		});
+	} catch (err) {
+		next(err);
+	}
+});
+
 router.delete("/:id", authenticateUser, async (req, res, next) => {
 	try {
 		const id = req.params.id;

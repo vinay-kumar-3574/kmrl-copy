@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Search, 
   Filter, 
@@ -26,10 +28,14 @@ import {
   Download,
   Flag,
   Users,
-  Loader2
+  Loader2,
+  FileImage,
+  FileVideo,
+  FileArchive,
+  X
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { getAssignedProjects, updateProject, createSampleProjects, type Project } from "@/lib/api";
+import { getAssignedProjects, updateProject, createSampleProjects, apiFetch, type Project } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const AssignedProjects = () => {
@@ -41,6 +47,10 @@ const AssignedProjects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectDocuments, setProjectDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [viewProjectOpen, setViewProjectOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch assigned projects on component mount
@@ -119,6 +129,33 @@ const AssignedProjects = () => {
     }
   };
 
+  // Function to view project details and fetch related documents
+  const handleViewProject = async (project: Project) => {
+    setSelectedProject(project);
+    setViewProjectOpen(true);
+    setProjectDocuments([]);
+    
+    // If project has a related document, fetch it by ID
+    if (project.relatedDocumentId) {
+      setLoadingDocuments(true);
+      try {
+        const response = await apiFetch(`/api/documents/${project.relatedDocumentId}`);
+        if (response.document) {
+          setProjectDocuments([response.document]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch project document:", err);
+        toast({
+          title: "Warning",
+          description: "Could not load project document. You may not have access to this document.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingDocuments(false);
+      }
+    }
+  };
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "high":
@@ -166,6 +203,28 @@ const AssignedProjects = () => {
     const diffTime = deadlineDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const getFileIcon = (type: string) => {
+    switch ((type || "").toLowerCase()) {
+      case "pdf":
+        return <FileText className="w-5 h-5 text-destructive" />;
+      case "docx":
+      case "doc":
+        return <FileText className="w-5 h-5 text-primary" />;
+      case "xlsx":
+      case "xls":
+        return <FileText className="w-5 h-5 text-success" />;
+      case "jpg":
+      case "png":
+      case "jpeg":
+        return <FileImage className="w-5 h-5 text-accent" />;
+      case "mp4":
+      case "avi":
+        return <FileVideo className="w-5 h-5 text-warning" />;
+      default:
+        return <FileArchive className="w-5 h-5 text-muted-foreground" />;
+    }
   };
 
   const filteredProjects = projects.filter(project => {
@@ -367,7 +426,7 @@ const AssignedProjects = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleViewProject(project)}>
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
@@ -458,7 +517,7 @@ const AssignedProjects = () => {
                       <FileText className="w-4 h-4 mr-2" />
                       Documents
                     </Button>
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => handleViewProject(project)}>
                       <Eye className="w-4 h-4 mr-2" />
                       View Project
                     </Button>
@@ -485,6 +544,217 @@ const AssignedProjects = () => {
           </div>
         )}
       </main>
+
+      {/* Project View Modal */}
+      <Dialog open={viewProjectOpen} onOpenChange={setViewProjectOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Project Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedProject && (
+            <ScrollArea className="max-h-[70vh] pr-4">
+              <div className="space-y-6">
+                {/* Project Header */}
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h2 className="text-2xl font-bold text-foreground mb-2">
+                        {selectedProject.title}
+                      </h2>
+                      <div className="flex items-center gap-3 mb-3">
+                        <Badge className={getUrgencyColor(selectedProject.urgency)}>
+                          <Flag className="w-3 h-3 mr-1" />
+                          {selectedProject.urgency} Priority
+                        </Badge>
+                        <Badge className={getStatusColor(selectedProject.status)}>
+                          {getStatusIcon(selectedProject.status)}
+                          <span className="ml-1 capitalize">{selectedProject.status.replace("-", " ")}</span>
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground mb-4">{selectedProject.description}</p>
+                    </div>
+                  </div>
+
+                  {/* Project Info Grid */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2 text-sm">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Assigned by:</span>
+                        <span>{selectedProject.assignedBy}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Deadline:</span>
+                        <span>{new Date(selectedProject.deadline).toLocaleDateString()}</span>
+                        <span className={`ml-1 ${getDaysRemaining(selectedProject.deadline) < 0 ? 'text-destructive' : getDaysRemaining(selectedProject.deadline) < 7 ? 'text-warning' : 'text-muted-foreground'}`}>
+                          ({getDaysRemaining(selectedProject.deadline) < 0 ? `${Math.abs(getDaysRemaining(selectedProject.deadline))} days overdue` : `${getDaysRemaining(selectedProject.deadline)} days left`})
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Time:</span>
+                        <span>{selectedProject.spentHours}/{selectedProject.estimatedHours} hours</span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2 text-sm">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Category:</span>
+                        <span>{selectedProject.category}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Collaborators:</span>
+                        <span>{selectedProject.collaborators.length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Progress</span>
+                      <span>{selectedProject.progress}%</span>
+                    </div>
+                    <Progress value={selectedProject.progress} className="h-2" />
+                  </div>
+
+                  {/* Tags */}
+                  {selectedProject.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProject.tags.map((tag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Collaborators */}
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-foreground">Collaborators</h3>
+                    <div className="flex -space-x-2">
+                      {selectedProject.collaborators.slice(0, 5).map((collaborator, index) => (
+                        <Avatar key={index} className="w-8 h-8 border-2 border-background">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                            {collaborator.split(" ").map(n => n[0]).join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {selectedProject.collaborators.length > 5 && (
+                        <div className="w-8 h-8 bg-muted rounded-full border-2 border-background flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">+{selectedProject.collaborators.length - 5}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedProject.collaborators.join(", ")}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Related Documents Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Related Documents
+                    </h3>
+                    {selectedProject.relatedDocumentId && (
+                      <Badge variant="outline" className="text-xs">
+                        {projectDocuments.length} document{projectDocuments.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {loadingDocuments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 text-primary animate-spin mr-2" />
+                      <span className="text-muted-foreground">Loading documents...</span>
+                    </div>
+                  ) : projectDocuments.length > 0 ? (
+                    <div className="space-y-3">
+                      {projectDocuments.map((doc) => (
+                        <Card key={doc.id} className="border border-border">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start space-x-3 flex-1">
+                                {getFileIcon(doc.mimeType?.split("/")[1] || "")}
+                                <div className="flex-1">
+                                  <h4 className="font-medium text-foreground mb-1">
+                                    {doc.title || doc.fileName}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {doc.mimeType} • {(doc.fileSize / 1024).toFixed(1)} KB
+                                    </Badge>
+                                    {doc.urgency && (
+                                      <Badge className={`text-xs ${getUrgencyColor(doc.urgency)}`}>
+                                        {doc.urgency}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {doc.description && (
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      {doc.description}
+                                    </p>
+                                  )}
+                                  {doc.tags && doc.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {doc.tags.map((tag: string, index: number) => (
+                                        <Badge key={index} variant="secondary" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(doc.url, "_blank")}
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  View
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(doc.url, "_blank")}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : selectedProject.relatedDocumentId ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No documents found for this project</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>This project has no related documents</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

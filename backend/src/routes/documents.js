@@ -37,6 +37,36 @@ router.get("/", authenticateUser, async (req, res, next) => {
 	}
 });
 
+// Get a specific document by ID
+router.get("/:id", authenticateUser, async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const docRef = db.collection("documents").doc(id);
+		const docSnap = await docRef.get();
+		
+		if (!docSnap.exists) {
+			return res.status(404).json({ error: { message: "Document not found" } });
+		}
+		
+		const docData = docSnap.data();
+		
+		// Check if user has access to this document
+		// Allow access if user is the owner OR if document was shared with them
+		const uid = req.user.uid;
+		const hasAccess = docData.ownerUid === uid || 
+			(docData.sharedWith && docData.sharedWith.includes(uid)) ||
+			(docData.sharedWith && Array.isArray(docData.sharedWith) && docData.sharedWith.some((shared) => shared.id === uid));
+		
+		if (!hasAccess) {
+			return res.status(403).json({ error: { message: "Access denied" } });
+		}
+		
+		res.json({ document: { id: docSnap.id, ...docData } });
+	} catch (err) {
+		next(err);
+	}
+});
+
 // Diagnostics: verify router is mounted
 router.get("/test", (_req, res) => {
 	res.json({ ok: true, route: "/api/documents/test" });
